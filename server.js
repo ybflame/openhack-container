@@ -1,5 +1,7 @@
 
 const express = require('express');
+const yaml = require('js-yaml');
+const fs = require('fs');
 //const k8s = require('@kubernetes/client-node');
 const Client = require('kubernetes-client').Client;
 const config = require('kubernetes-client').config;
@@ -11,7 +13,9 @@ const port =process.env.PORT||3000;
 
 const service_name = "azure-minecraft";
 
-const k8client = new Client({ config: config.fromKubeconfig(), version: '1.9' });
+const kubeconfig = yaml.safeLoad(fs.readFileSync("./kubeConfig"));
+
+const k8client = new Client({ config: config.fromKubeconfig(kubeconfig), version: '1.9' });
 console.log("client ", k8client);
 
 app.use(bodyParser.json());
