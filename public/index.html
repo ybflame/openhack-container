@@ -65,15 +65,9 @@
       <h3>Management Actions</h3>
       <p>
         <a href="javascript:addServer()" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add New Server</a> &nbsp;
-        <!--<a href="#" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Remove One Pod</a> &nbsp;-->
+        <a href="javascript:deleteServer()" class="btn btn-sml btn-danger"> <span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Remove Last Server</a> &nbsp;
       </p>
 
-      <hr/>
-
-      <h3>Server Info</h3>
-      <p><img src="https://mcapi.us/server/image?ip=52.179.16.121&title=Team11"></p>
-
-      <hr/>
 
       <div class="row">
         <div class="col-md-12">
@@ -85,12 +79,14 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <script>
-      (function() {
+      function getServers() {
         //var myAPI = "http://52.191.194.108/data.json";
         var myAPI = "/servers";
         $.getJSON(myAPI, function (data) {
           console.log(data);
           var table = document.getElementById('svrtbl');
+
+          var rows = document.getElementsByTagName("tr");
 
             // cycle through the array for each of the presidents
             for (var i = 0; i < data.length; ++i) {
@@ -117,10 +113,17 @@
             }
 
       })
-      })();
+      }
+      getServers();
+      //setTimeout(getServers, 10000);
 
       function addServer() {
         $.post( "/servers/add", function( data ) {
+            console.log(data);
+        });
+    }  
+    function deleteServer() {
+        $.post( "/servers/deleteone", function( data ) {
             console.log(data);
         });
     }  

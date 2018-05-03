@@ -253,6 +253,35 @@ app.get('/deployments',(req,res)=>{
     })();
 })
 
+app.post('/servers/deleteone',(req,res)=>{
+
+    (async function deleteServer(){
+
+        const services =  await k8client.api.v1.namespaces("default").services.get();
+        const serviceName ="azure-minecraft";
+
+        //const filteredSvs = services.body.items.filter(x =>  x.metadata.name.substring(0,16) === serviceName);
+        const filteredSvs = services.body.items.filter(x =>  x.status.loadBalancer.ingress);
+
+        const len = filteredSvs.length;
+        const delName = filteredSvs[len-1].metadata.name;
+        console.log("delete name:", delName);
+        try {
+            const resp = await k8client.api.v1.namespaces("default").services(delName).delete();
+        } catch (e) {
+            console.log(e);
+        }    
+        try {
+            const resp2 = await k8client.apis.apps.v1beta1.namespaces("default").deployments(delName).delete();
+        } catch(e){    
+            console.log(e);
+        }
+
+    res.status(200).send(services);
+        
+    })();
+})
+
 app.get('/services',(req,res)=>{
 
     (async function getServices(){
