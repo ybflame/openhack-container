@@ -15,10 +15,11 @@ const service_name = "azure-minecraft";
 
 const kubeconfig = yaml.safeLoad(fs.readFileSync("./kubeConfig"));
 
-const k8client = new Client({ config: config.fromKubeconfig(kubeconfig), version: '1.9' });
-console.log("client ", k8client);
+const k8client = new Client({ config: config.fromKubeconfig(kubeconfig) , version: '1.8'});
+//console.log("client ", k8client);
 
 app.use(bodyParser.json());
+app.use('/static',express.static('public'));
 
 app.listen(port);
 
@@ -113,16 +114,67 @@ app.get('/pods',(req,res)=>{
 app.post('/pods/add',(req,res)=>{
 
     (async function addPod(){
+           
+        // const deployments = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").get();
 
-        const replCtrl = await k8client.api.v1.namespaces("default").replicationcontrollers.scale.get();
+        // console.log("deployments:", deployments);
+        // const replicas = deployments.body.spec.replicas;
+        
+        const scale = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").scale.get();
+        const replicas = scale.body.spec.replicas;
 
-        console.log("replica Controller:", replCtrl);
+        const body = {
+            body: {
+                spec: {
+                    replicas: replicas + 1
+                }
+            }    
+          }
+        try {
+          const resp = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").scale.patch(body);
+          res.status(200).send(resp);
+        } catch (e) {
+            console.log ("error:",e);
+            res.status(500).send(e);
+        }
 
-    
-        res.status(200).send(replCtrl);
     })();
 })
 
+app.post('/pods/deleteone',(req,res)=>{
+
+    (async function deletePod(){
+           
+        
+        const pods =  await k8client.api.v1.namespaces("default").pods.get();
+
+        const filteredPods = pods.body.items.filter(x =>  x.metadata.labels.app === service_name);
+
+        //const pod = await k8client.api.v1.namespaces("default").pods(filteredPods[0].metadata.name).get();
+
+        const body = {
+            body: {
+                    apiVersion: "v1",
+                    gracePeriodSeconds: 0,
+                    kind: "Pod",
+                    preconditions: {
+                      uid: filteredPods[0].metadata.uid
+                    }
+            }
+        }
+        console.log("body:", body);
+        try {
+            const resp = await  k8client.api.v1.namespaces("default").pods(filteredPods[0].metadata.name).delete();
+
+            res.status(200).send(resp);
+        } catch (e) {
+            console.log("error:",e);
+            res.status(500).send(e);
+           
+        }    
+
+    })();
+})
 
 
 app.post('/users/signup',(req,res)=>{
@@ -130,6 +182,6 @@ app.post('/users/signup',(req,res)=>{
     res.status(200).send();
 })    
 
-console.log('todo list RESTful API server started on: ' + port);
+console.log('RESTful API server started on: ' + port);
 
 
