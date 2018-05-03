@@ -42,20 +42,21 @@
         </div>
       </nav><br/>
     -->
-      <h1>Team 11 - Minecraft Cluster Pods</h1>
+      <h1>Team 11 - Minecraft Cluster Servers</h1>
       <div class="row">
         <div class="col-md-12">
-          <table class="table table-hover">
+          <table id="svrtbl" class="table table-hover">
             <thead>
               <tr><th>Name</th><th>Endpoints</th></tr>
             </thead>
-            <tbody>
+<!--            <tbody id="svrbdy">
               <tr>
                 <td id="podName">Test Name</td>
                 <td>1</td>
               </tr>
             </tbody>
-          </table>
+        -->
+            </table>
         </div>
       </div>
 
@@ -63,8 +64,8 @@
 
       <h3>Management Actions</h3>
       <p>
-        <a href="#" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add New Pod</a> &nbsp;
-        <a href="#" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Remove One Pod</a> &nbsp;
+        <a href="javascript:addServer()" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> Add New Server</a> &nbsp;
+        <!--<a href="#" class="btn btn-sml btn-primary"> <span class="glyphicon glyphicon-remove" aria-hidden="true"></span> Remove One Pod</a> &nbsp;-->
       </p>
 
       <hr/>
@@ -86,11 +87,44 @@
     <script>
       (function() {
         //var myAPI = "http://52.191.194.108/data.json";
-        var myAPI = "http://138.91.120.10:3000/pods";
+        var myAPI = "/servers";
         $.getJSON(myAPI, function (data) {
           console.log(data);
+          var table = document.getElementById('svrtbl');
+
+            // cycle through the array for each of the presidents
+            for (var i = 0; i < data.length; ++i) {
+            // keep a reference to an individual president object
+                var svr = data[i];
+
+                console.log (svr);
+
+                // create a row element to append cells to
+                var row = document.createElement('tr');
+
+                    var cell = document.createElement('td');
+
+                    cell.innerHTML = svr['name'];
+                    
+                    var cell2 = document.createElement('td');
+                    cell2.innerHTML= JSON.stringify(svr['endpoints']);
+                    console.log("innter html:",  cell2.innterHTML);
+                    // add to end of the row
+                    row.appendChild(cell);
+                    row.appendChild(cell2);
+
+                table.appendChild(row);
+            }
+
       })
       })();
+
+      function addServer() {
+        $.post( "/servers/add", function( data ) {
+            console.log(data);
+        });
+    }  
+
     </script>
   </body>
 </html>

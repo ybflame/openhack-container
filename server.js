@@ -39,39 +39,25 @@ app.get('/users/data',(req,res)=>{
 //         });
 // })
 
-app.get('/pods',(req,res)=>{
+app.get('/servers',(req,res)=>{
 
-    (async function getService(){
+    (async function getServers(){
 
-        const namespaces =  await k8client.api.v1.namespaces.get();
-        console.log('Namespaces: ', namespaces);
+        const services =  await k8client.api.v1.namespaces("default").services.get();
+        const serviceName ="azure-minecraft";
 
-        const service =  await k8client.api.v1.namespaces("default").services(service_name).get();
-        //console.log('Service: ', service);
-        const eip = service.body.status.loadBalancer.ingress[0].ip;
-        console.log("eip: ", eip);
+        //const filteredSvs = services.body.items.filter(x =>  x.metadata.name.substring(0,16) === serviceName);
+        const filteredSvs = services.body.items.filter(x =>  x.status.loadBalancer.ingress);
 
-        const sname = service.body.metadata.name;
+        console.log("non-filtered:", services);
+        console.log("filtered:", filteredSvs);
 
-        // const ports = service.body.spec.ports.map( x => {x.name: 
-        //     return {
-        //         x.name: eip + ":" + x.targetPort
-        //         "minecraft": "128.124.90.15:25565",
-        //         "rcon": "128.124.90.15:25575"
-        //       }
-        // })
-
-        const pods =  await k8client.api.v1.namespaces("default").pods.get();
-        // const filteredPods = pods.body.items.find(x =>  x.metadata.labels.app === service_name)
-        // console.log('pod: ', filteredPods);
-
-        const filteredPods = pods.body.items.filter(x =>  x.metadata.labels.app === service_name);
-        const servers = filteredPods.map(x => {
+        const servers = filteredSvs.map(x => {
                 let name = x.metadata.name;
-                let podIp = x.status.podIP;
+                let eip = x.status.loadBalancer.ingress[0].ip;
                 let endpoints = {};
-                x.spec.containers[0].ports.forEach(x => {
-                    endpoints[x.name] = podIp + ":" + x.containerPort;
+                x.spec.ports.forEach(x => {
+                    endpoints[x.name] = eip + ":" + x.targetPort;
                 });
 
                 console.log("endpoints:", endpoints);
@@ -80,32 +66,8 @@ app.get('/pods',(req,res)=>{
                     name: name,
                     endpoints: endpoints
                 }
+        })        
 
-            })
-
-        console.log("servers:", servers)
-
-        // const resp = services.items.map(x =>{
-        //     let ip = x.    
-        //     x.
-        //     return ({
-        //         "name": x.metadata.name,
-        //         "endpoints": 
-        //     }}
-        // }) ;
-
-        // items.map()
-        // [
-        //     {
-        //       "name": "<some arbitrary name>",
-        //       "endpoints": {
-        //         "minecraft": "<publicly available IP:port>",
-        //         "rcon": "<publicly available IP:port>"
-        //       }
-        //     }
-        //   ]
-
-    
         res.status(200).send(servers);
     })();
 })
@@ -115,13 +77,13 @@ app.post('/pods/add',(req,res)=>{
 
     (async function addPod(){
            
-        // const deployments = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").get();
+        const deployments = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").get();
 
-        // console.log("deployments:", deployments);
-        // const replicas = deployments.body.spec.replicas;
+        //console.log("deployments:", deployments);
+        const replicas = deployments.body.spec.replicas;
         
-        const scale = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").scale.get();
-        const replicas = scale.body.spec.replicas;
+        // const scale = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").scale.get();
+        // const replicas = scale.body.spec.replicas;
 
         const body = {
             body: {
@@ -131,12 +93,117 @@ app.post('/pods/add',(req,res)=>{
             }    
           }
         try {
-          const resp = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").scale.patch(body);
+          const resp = await k8client.apis.apps.v1beta1.namespaces("default").deployments("azure-minecraft").patch(body);
           res.status(200).send(resp);
         } catch (e) {
             console.log ("error:",e);
             res.status(500).send(e);
         }
+
+    })();
+})
+
+
+app.post('/servers/add',(req,res)=>{
+
+    (async function addServer(){
+        
+        const name = "azure-minecraft-" + new Date().valueOf();
+        const deploymentReq = {
+            body: {
+                    apiVersion: "apps/v1beta1",
+                    kind: "Deployment",
+                    metadata: {
+                      name: name
+                    },
+                    spec: {
+                      replicas: 1,
+                      selector: {
+                        matchLabels: {
+                          app: name
+                        }
+                      },
+                      template: {
+                        metadata: {
+                          labels: {
+                            app: name
+                          }
+                        },
+                        spec: {
+                          containers: [
+                            {
+                              name: name,
+                              image: "openhack/minecraft-server:2.0",
+                              env: [{
+                                  name: "EULA",
+                                  value: "TRUE"
+                              }],
+                              ports: [
+                                {
+                                  containerPort: 25565,
+                                  name: "minecraft"
+                                },
+                                {
+                                    containerPort: 25575,
+                                    name: "rcon"
+                                }
+                              ]   
+                            }
+                          ]
+                        }
+                      }
+                    }
+                }
+        }
+        
+        try {
+            const resp = await k8client.apis.apps.v1beta1.namespaces("default").deployments.post(deploymentReq);
+        } catch (e) {
+            console.log ("error:",e);
+            //res.status(500).send(e);
+        }
+
+
+        const service = {
+            body: {
+                "kind": "Service",
+                "apiVersion": "v1",
+                "metadata": {
+                  "name": name
+                },
+                "spec": {
+                  "ports": [
+                    {
+                      "name": "minecraft",
+                      "port": 25565,
+                      "targetPort": 25565
+                    },
+                    {
+                        "name": "rcon",
+                        "port": 25575,
+                        "targetPort": 25575
+                      }
+                    ],
+                  "selector": {
+                    "app": name
+                  },
+                  "type": "LoadBalancer",
+                },
+              }
+        }
+
+        console.log("servie body:", service);
+
+        
+        try {
+            const respSvr = await k8client.api.v1.namespaces("default").services.post(service);
+            //res.status(200).send(resp);
+        } catch (e) {
+            console.log ("error:",e);
+            //res.status(500).send(e);
+        }
+
+        res.status(200).send(deploymentReq);
 
     })();
 })
@@ -173,6 +240,25 @@ app.post('/pods/deleteone',(req,res)=>{
            
         }    
 
+    })();
+})
+
+app.get('/deployments',(req,res)=>{
+
+    (async function getDeployments(){
+           
+        const deployments = await k8client.apis.apps.v1beta1.namespaces("default").deployments.get();
+
+        res.status(200).send(deployments);
+    })();
+})
+
+app.get('/services',(req,res)=>{
+
+    (async function getServices(){
+
+        const services =  await k8client.api.v1.namespaces("default").services.get();
+        res.status(200).send(services);
     })();
 })
 
